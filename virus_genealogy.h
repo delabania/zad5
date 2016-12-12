@@ -2,6 +2,7 @@
 #define __VIRUS_GENEALOGY__
 
 #include <vector>
+#include <memory>
 
 // Pomocniczo, zeby sprawdzic czy sie kompiluje
 // Do usuniecia po skonczeniu
@@ -45,9 +46,12 @@ class TriedToRemoveStemVirus : public std::exception {
 	}
 };
 
+
+
 template <class Virus>
 class VirusGenealogy {
 	using id_type = typename Virus::id_type;
+	using virus_ptr = std::shared_ptr<Virus>;
 
 public:
 	VirusGenealogy(const VirusGenealogy &) = delete;
@@ -64,7 +68,10 @@ public:
 	void connect(id_type const &child_id, id_type const &parent_id);
 	void remove(id_type const &id);
 
-};
+private:
 
+
+
+};
 
 #endif /* __VIRUS_GENEALOGY__ */
