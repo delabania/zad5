@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <memory>
+#include <map>
+
 
 // Pomocniczo, zeby sprawdzic czy sie kompiluje
 // Do usuniecia po skonczeniu
@@ -56,11 +58,21 @@ public:
 	VirusGenealogy(const VirusGenealogy &) = delete;
 	VirusGenealogy & operator=(const VirusGenealogy &) = delete;
 
-	VirusGenealogy(id_type const &stem_id);
-	id_type get_stem_id() const;
+	VirusGenealogy(id_type const &stem_id) {
+		// stworz wierzcholek z wirusem macierzystym i dodaj do mapy
+		_stem = std::make_shared<node>(stem_id);
+		_all_nodes.insert(make_pair(stem_id, _stem));
+	}
+
+	id_type get_stem_id() const {
+		return _stem._virus->get_id();
+	}
+	bool exists(id_type const &id) const {
+		return _all_nodes.find(id) != _all_nodes.end();
+	}
+	
 	std::vector<id_type> get_children(id_type const &id) const;
 	std::vector<id_type> get_parents(id_type const &id) const;
-	bool exists(id_type const &id) const;
 	Virus& operator[](id_type const &id) const;
 	void create(id_type const &id, id_type const &parent_id);
 	void create(id_type const &id, std::vector<id_type> const &parent_ids);
@@ -68,13 +80,20 @@ public:
 	void remove(id_type const &id);
 
 private:
+	// struktura na przechowywanie wierzcholkow grafu genealogii -> moze klasa z publicznymi getterami setteram?
 	struct node {
 		//http://stackoverflow.com/questions/27348396/smart-pointers-for-graph-representation-vertex-neighbors-in-c11
-		std::vector<std::shared_ptr<node> > children;
-		std::vector<std::weak_ptr<node> > parents;
-		//virus_unique_ptr virus;
+		std::unique_ptr<Virus> _virus;
+		std::vector<std::shared_ptr<node> > _children;
+		std::vector<std::weak_ptr<node> > _parents;
+		node(id_type const & stem_id) {
+			_virus = std::make_unique<Virus>(stem_id);
+		}
 	};
-
+	// mapa wszystkich potomkow wirusa
+	std::map<id_type, std::weak_ptr<node> > _all_nodes;
+	// wirus macierzysty
+	std::shared_ptr<node> _stem;
 
 };
 
