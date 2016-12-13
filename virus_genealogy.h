@@ -61,48 +61,56 @@ public:
 	VirusGenealogy(const VirusGenealogy &) = delete;
 	VirusGenealogy & operator=(const VirusGenealogy &) = delete;
 
+
 	VirusGenealogy(id_type const &stem_id) {
 		// stworz wierzcholek z wirusem macierzystym i dodaj do mapy
 		_stem = std::make_shared<node>(stem_id);
 		_all_nodes.insert(make_pair(stem_id, _stem));
 	}
 
+
 	id_type get_stem_id() const {
 		return _stem._virus->get_id();
 	}
+
+
 	bool exists(id_type const &id) const {
 		return _all_nodes.find(id) != _all_nodes.end();
 	}
+
+
 	//@TODO : straszny copypaste z get_parents! Wydzielic do jednej funkcji
 	std::vector<id_type> get_children(id_type const &id) const {
-		// 1. sprawdz czy istnieje wirus o identyfikatorze id, wpp rzuc wyjatek
-		auto it = _all_nodes.find(id);
-		if (it == _all_nodes.end())
-			throw new VirusNotFound();
-		// stworz wektor w ktorym zwrocone zostana id nastepnikow
+		// wyszukaj wezel o numerze id, gdy nie istnieje rzuc wyjatek => prywatna funkcja get_node
+		auto current = get_node(id);
 		std::vector<id_type> children;
-		// dla kazdego dziecka wezla, na ktory pokazuje iterator it wrzuc do wektora
-		// identyfikator dziecka tego wezla
-		for (auto &node_ptr : it->_children)
+		// current->_children to wektor <weak_ptr> nastepnikow (dzieci) wezla current
+		for (auto & node_ptr : current->_children)
 			children.push_back(node_ptr->_virus->_get_id());
 		return children;
 	}
+
+
 	std::vector<id_type> get_parents(id_type const &id) const {
 		// analogicznie jak w get_children
-		auto it = _all_nodes.find(id);
-		if (it == _all_nodes.end())
-			throw new VirusNotFound();
+		auto current = get_node(id);
 		std::vector<id_type> parents;
-		for (auto &node_ptr : it->_parents)
+		// current->_children to wektor <weak_ptr> nastepnikow (dzieci) wezla current
+		for (auto & node_ptr : current->_parents)
 			parents.push_back(node_ptr->_virus->_get_id());
 		return parents;
+
 	}
+
+
 	Virus& operator[](id_type const & id) const {
 		auto it = _all_nodes.find(id);
 		if (it == _all_nodes.end())
 			throw new VirusNotFound();
-		return *it;
+		return *(it->_virus);
 	}
+
+
 	void create(id_type const & id, id_type const & parent_id);
 	void create(id_type const & id, std::vector<id_type> const & parent_ids);
 	void connect(id_type const & child_id, id_type const & parent_id);
@@ -123,6 +131,15 @@ private:
 	std::map<id_type, std::weak_ptr<node> > _all_nodes;
 	// wirus macierzysty
 	std::shared_ptr<node> _stem;
+
+	auto get_node(id_type const & id) const {
+		auto it = _all_nodes.find(id);
+		if (it == _all_nodes.end())
+			throw new VirusNotFound();
+		// it to iterator wskazujacy na pare <id, std:weak_ptr<node>>
+		// *(it->second) jest typu std::weak_ptr<node>
+		return (it->second);
+	}
 
 };
 
