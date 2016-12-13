@@ -95,7 +95,7 @@ public:
 		// analogicznie jak w get_children
 		auto current = get_node(id);
 		std::vector<id_type> parents;
-		// current->_children to wektor <weak_ptr> nastepnikow (dzieci) wezla current
+		// current->_parent to wektor <weak_ptr> nastepnikow (dzieci) wezla current
 		for (auto & node_ptr : current->_parents)
 			parents.push_back(node_ptr->_virus->_get_id());
 		return parents;
@@ -104,10 +104,9 @@ public:
 
 
 	Virus& operator[](id_type const & id) const {
-		auto it = _all_nodes.find(id);
-		if (it == _all_nodes.end())
-			throw new VirusNotFound();
-		return *(it->_virus);
+		// node_ptr to weak_ptr do wezla reprezentujacego wirus o identyfikatorze id
+		auto node_ptr = get_node(id);
+		return node_ptr->_virus;
 	}
 
 
@@ -132,6 +131,7 @@ private:
 	// wirus macierzysty
 	std::shared_ptr<node> _stem;
 
+	// zwraca weak_ptr do wirusa o numerze id, albo gdy ten nie istnieje wyrzuca wyjatek
 	auto get_node(id_type const & id) const {
 		auto it = _all_nodes.find(id);
 		if (it == _all_nodes.end())
