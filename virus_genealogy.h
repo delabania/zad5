@@ -165,14 +165,48 @@ public:
 	void remove(id_type const & id);
 
 private:
-	// struktura na przechowywanie wierzcholkow grafu genealogii -> moze klasa z publicznymi getterami setteram?
-	struct node {
+
+	class Node {
+	private:
 		//http://stackoverflow.com/questions/27348396/smart-pointers-for-graph-representation-vertex-neighbors-in-c11
 		std::unique_ptr<Virus> _virus;
-		std::vector<std::shared_ptr<node> > _children;
-		std::vector<std::weak_ptr<node> > _parents;
-		node(id_type const & stem_id) {
+		std::vector<std::shared_ptr<Node> > _children;
+		std::vector<std::weak_ptr<Node> > _parents;
+
+	public:
+		Node(id_type const & stem_id) {
 			_virus = std::make_unique<Virus>(stem_id);
+		}
+
+		id_type get_id() {
+			return _virus->get_id();
+		}
+
+		Virus get_virus() {
+			return *_virus;
+		}
+
+		std::vector<id_type> get_parents() const noexcept {
+			std::vector result;
+
+			for (size_t i = 0; i < _parents.size(); ++i) {
+				if (!_parents[i].expired()) {
+					std::shared_ptr<Node> n = _parents[i].lock();
+					result.push_back(n->get_id());
+				}
+			}
+
+			return result;
+		}
+
+		std::vector<id_type> get_children() const noexcept {
+			std::vector result;
+
+			for (size_t i = 0; i < _children.size(); ++i) {
+				result.push_back(_children[i]->get_id());
+			}
+
+			return result;
 		}
 	};
 	// mapa wszystkich potomkow wirusa
