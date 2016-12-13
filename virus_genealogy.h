@@ -109,17 +109,51 @@ public:
 		return node_ptr->_virus;
 	}
 
-	//@TODO :dokonczyc!
 	void create(id_type const & id, id_type const & parent_id) {
 		auto it = _all_nodes.find(id);
 		if (it != _all_nodes.end())
 			throw new VirusAlreadyCreated();
-		auto parent_node = get_node(parent_id);
+		auto parent_node_ptr = get_node(parent_id);
 		// wszystko jest ok => stworz nowy wezel
-		// @TODO : reszta !
+		auto node_ptr = std::make_shared<node>(id);
+		// wstaw do mapy aktualny wierzcholek
+		_all_nodes[id] = node_ptr;
 
+		// stworz pomocnicze slabe wskazniki
+		std::weak_ptr<node> parent_weak_ptr = parent_node_ptr;
+		std::weak_ptr<node> current_weak_ptr = node_ptr;
+
+		// dodaj nowe dziecko do ojca
+		parent_weak_ptr->_children.push_back(current_weak_ptr);
+		// uzyj slabego wskaznika na ojca zeby wstawic go do listy ojcow aktualnego wezla
+		current_weak_ptr->_parents.push_back(parent_weak_ptr);
 	}
-	void create(id_type const & id, std::vector<id_type> const & parent_ids);
+
+	//@TODO : znowu copypaste!
+	void create(id_type const & id, std::vector<id_type> const & parent_ids) {
+		auto it = _all_nodes.find(id);
+		if (it != _all_nodes.end())
+			throw new VirusAlreadyCreated();
+		// wektor wskaznikow do potencjalnych ojcow
+		std::vector <std::weak_ptr<node> > parent_nodes;
+		// dla kazdego id wstaw do wektora weak_ptr do danego wezla
+		for (auto & parent_id : parent_ids)
+			// CO Z WYJATKAMI?
+			parent_nodes.push_back(get_node(parent_id));
+
+		//dalej analogicznie jak w metodzie create z jednym ojcem
+		auto node_ptr = std::make_shared<node>(id);
+		// wstaw do mapy aktualny wierzcholek
+		_all_nodes[id] = node_ptr;
+		std::weak_ptr<node> current_weak_ptr = node_ptr;
+
+
+		for (auto & parent_node_ptr : parent_nodes) {
+			std::weak_ptr<node> parent_weak_ptr = parent_node_ptr;
+			parent_weak_ptr->_children.push_back(current_weak_ptr);
+			current_weak_ptr->_parents.push_back(parent_weak_ptr);
+		}
+	}
 	void connect(id_type const & child_id, id_type const & parent_id);
 	void remove(id_type const & id);
 
@@ -134,7 +168,7 @@ private:
 			_virus = std::make_unique<Virus>(stem_id);
 		}
 	};
-	// mapa wszystkich potomkow wirusa 
+	// mapa wszystkich potomkow wirusa
 	std::map<id_type, std::weak_ptr<node> > _all_nodes;
 	// wirus macierzysty
 	std::shared_ptr<node> _stem;
