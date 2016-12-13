@@ -154,7 +154,14 @@ public:
 			current_weak_ptr->_parents.push_back(parent_weak_ptr);
 		}
 	}
-	void connect(id_type const & child_id, id_type const & parent_id);
+	void connect(id_type const & child_id, id_type const & parent_id) {
+		auto child_node_weak_ptr = get_node(child_id);
+		auto parent_node_weak_ptr = get_node(parent_id);
+		child_node_weak_ptr->_parents.push_back(parent_node_weak_ptr);
+		// przekonwertuj weak_ptr na shared_ptr
+		std::shared_ptr<node> child_node_shared_ptr = child_node_weak_ptr.lock();
+		parent_node_weak_ptr->_children.push_back(child_node_shared_ptr);
+	}
 	void remove(id_type const & id);
 
 private:
