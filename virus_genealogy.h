@@ -109,8 +109,16 @@ public:
 		return node_ptr->_virus;
 	}
 
+	//@TODO :dokonczyc!
+	void create(id_type const & id, id_type const & parent_id) {
+		auto it = _all_nodes.find(id);
+		if (it != _all_nodes.end())
+			throw new VirusAlreadyCreated();
+		auto parent_node = get_node(parent_id);
+		// wszystko jest ok => stworz nowy wezel
+		// @TODO : reszta !
 
-	void create(id_type const & id, id_type const & parent_id);
+	}
 	void create(id_type const & id, std::vector<id_type> const & parent_ids);
 	void connect(id_type const & child_id, id_type const & parent_id);
 	void remove(id_type const & id);
@@ -126,7 +134,7 @@ private:
 			_virus = std::make_unique<Virus>(stem_id);
 		}
 	};
-	// mapa wszystkich potomkow wirusa
+	// mapa wszystkich potomkow wirusa 
 	std::map<id_type, std::weak_ptr<node> > _all_nodes;
 	// wirus macierzysty
 	std::shared_ptr<node> _stem;
