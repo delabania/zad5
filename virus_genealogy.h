@@ -47,11 +47,10 @@ class TriedToRemoveStemVirus : public std::exception {
 };
 
 
-
+//@TODO : ktore smart-pointery uzyc w konkretnym przypadku?
 template <class Virus>
 class VirusGenealogy {
 	using id_type = typename Virus::id_type;
-	using virus_ptr = std::shared_ptr<Virus>;
 
 public:
 	VirusGenealogy(const VirusGenealogy &) = delete;
@@ -69,7 +68,12 @@ public:
 	void remove(id_type const &id);
 
 private:
-
+	struct node {
+		//http://stackoverflow.com/questions/27348396/smart-pointers-for-graph-representation-vertex-neighbors-in-c11
+		std::vector<std::shared_ptr<node> > children;
+		std::vector<std::weak_ptr<node> > parents;
+		//virus_unique_ptr virus;
+	};
 
 
 };
