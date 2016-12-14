@@ -120,7 +120,7 @@ public:
 	void connect(id_type const & child_id, id_type const & parent_id) {
 		if (!exists(parent_id) || !exists(child_id))
 			throw virus_not_found;
-		
+
 		std::shared_ptr<node> parent_node_shared_ptr = _all_nodes.find(parent_id)->second.lock();
 
 		if (get_iterator_to_child_ptr(parent_node_shared_ptr, child_id) !=
@@ -159,7 +159,7 @@ public:
 
 private:
 
-	// struktura na przechowywanie wierzcholkow grafu genealogii -> moze klasa z publicznymi getterami setteram?
+	// struktura na przechowywanie wierzcholkow grafu genealogii
 	struct node {
 		//http://stackoverflow.com/questions/27348396/smart-pointers-for-graph-representation-vertex-neighbors-in-c11
 		std::unique_ptr<Virus> _virus;
