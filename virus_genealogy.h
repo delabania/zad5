@@ -197,7 +197,7 @@ private:
 	std::shared_ptr<node> _stem;
 
 	// zwraca shared_ptr do wirusa o numerze id, albo gdy ten nie istnieje wyrzuca wyjatek
-	auto get_node_shared_ptr(id_type const & id) const {
+	std::shared_ptr<node> get_node_shared_ptr(id_type const & id) const {
 		auto it = _all_nodes.find(id);
 		if (it == _all_nodes.end() || it->second.expired())
 			throw new VirusNotFound();
