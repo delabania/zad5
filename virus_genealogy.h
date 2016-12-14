@@ -7,6 +7,8 @@
 #include <map>
 #include <cassert>
 
+#include <iostream>
+
 
 // Pomocniczo, zeby sprawdzic czy sie kompiluje
 // Do usuniecia po skonczeniu
@@ -25,17 +27,19 @@ class VirusNotFound : public std::exception {
 	virtual const char* what() const throw() {
 		return "VirusNotFound";
 	}
-};
+} virus_not_found;
+
 class VirusAlreadyCreated : public std::exception {
 	virtual const char* what() const throw() {
 		return "VirusAlreadyCreated";
 	}
-};
+} virus_already_created;
+
 class TriedToRemoveStemVirus : public std::exception {
 	virtual const char* what() const throw() {
 		return "TriedToRemoveStemVirus";
 	}
-};
+} tried_to_remove_stem_virus;
 
 
 //@TODO : wyjatki - nie ma poki co zadnej odpornosci na wyjatki!
@@ -63,7 +67,12 @@ public:
 
 
 	bool exists(id_type const &id) const {
-		return _all_nodes.find(id) != _all_nodes.end();
+		auto it = _all_nodes.find(id);
+		// jezeli nie wezla w mapie, albo jest, ale wczesniej zostal usuniety 
+		if(it == _all_nodes.end() || it->second.expired())
+			return false;
+		// jest w mapie i jest nadal aktywny
+		return true;
 	}
 
 
@@ -105,8 +114,8 @@ public:
 
 	void create(id_type const & id, id_type const & parent_id) {
 		auto it = _all_nodes.find(id);
-		if (it != _all_nodes.end())
-			throw new VirusAlreadyCreated();
+		if (it != _all_nodes.end() && !it->second.expired())
+			throw virus_already_created;
 		auto parent_node_shared_ptr = get_node_shared_ptr(parent_id);
 		// wszystko jest ok => stworz nowy wezel
 		auto node_shared_ptr = std::make_shared<node>(id);
@@ -125,10 +134,10 @@ public:
 	//@TODO : znowu copypaste!
 	void create(id_type const & id, std::vector<id_type> const & parent_ids) {
 		auto it = _all_nodes.find(id);
-		if (it != _all_nodes.end())
-			throw new VirusAlreadyCreated();
+		if (it != _all_nodes.end() && !it->second.expired())
+			throw virus_already_created;
 		if (parent_ids.size() == 0)
-			throw new VirusNotFound();
+			throw virus_not_found;
 		// wektor wskaznikow do potencjalnych ojcow
 		std::vector <std::shared_ptr<node> > parent_nodes;
 		// dla kazdego id wstaw do wektora weak_ptr do danego wezla
@@ -154,8 +163,8 @@ public:
 	void connect(id_type const & child_id, id_type const & parent_id) {
 		auto parent_node_shared_ptr = get_node_shared_ptr(parent_id);
 		// Jesli krawedz istnieje to nic nie rob
-		if(get_iterator_to_child_ptr(parent_node_shared_ptr, child_id) != 
-			parent_node_shared_ptr->_children.end())
+		if (get_iterator_to_child_ptr(parent_node_shared_ptr, child_id) !=
+		        parent_node_shared_ptr->_children.end())
 			return;
 		// Wpp stworz polaczenie miedzy ojcem a dzieckiem
 		auto parent_node_weak_ptr = parent_node_shared_ptr;
@@ -168,7 +177,7 @@ public:
 
 	void remove(id_type const & id) {
 		if (_stem->_virus->get_id() == id)
-			throw new TriedToRemoveStemVirus();
+			throw tried_to_remove_stem_virus;
 		auto node_to_remove = get_node_shared_ptr(id);
 		assert(node_to_remove->_virus->get_id() == id);
 
@@ -179,19 +188,9 @@ public:
 				delete_ptr_to_child(parent_node_shared_ptr, id);
 			}
 		}
-		/* usun wskazniki na synow - jezeli jakis syn stanie sie
-		 * nowym korzeniem, to ze wzgledu na to ze nie bedzie wskazywal
-		 * na niego zaden shared_pointer to zostanie usuniety razem z wirusem
-		 * ktorego reprezentuje
-		 */
-		node_to_remove->_children.clear();
-		// usun z mapy
-		_all_nodes.erase(id);
-
-		// DO PRZEMYSLENIA I PRZEGADANIA
-		// pytanie czy nie trzeba jeszcze usuwac wskaznika na ojca u dzieci?
-		// jest to weak_ptr wiec teoretycznie nic to nie psuje, ale moze jest
-		// to troche niewydajne?
+		// reszte robi za nas (domyslny) destruktor node() ktory zostanie wywolany zaraz
+		// po opuszczeniu funkcji -> wyczysci wektory dzieci i rodzica, a takze usunie wirusa
+		// a wskaznik w mapie bedzie `expired`
 	}
 
 
@@ -239,7 +238,7 @@ private:
 	std::shared_ptr<node> get_node_shared_ptr(id_type const & id) const {
 		auto it = _all_nodes.find(id);
 		if (it == _all_nodes.end() || it->second.expired())
-			throw new VirusNotFound();
+			throw virus_not_found;
 		// it to iterator wskazujacy na pare <id, std:weak_ptr<node>>
 		// (*it)->second jest typu std::weak_ptr<node>
 		auto ptr = it->second.lock();
@@ -248,15 +247,15 @@ private:
 
 	auto get_iterator_to_child_ptr(std::shared_ptr<node> parent, id_type const & child_id) {
 		auto it = std::find_if (parent->_children.begin(), parent->_children.end(),
-		[child_id](std::shared_ptr<node> child) {
+		[&child_id](std::shared_ptr<node> child) {
 			return child->_virus->get_id() == child_id;
 		});
 		return it;
 	}
 
+	// zwraca iterator do wierzcholka w wektorze synow, ktory reprezentuje
+	// wirus o identyfikatorze child_id
 	void delete_ptr_to_child(std::shared_ptr<node> parent, id_type const & child_id) {
-		// zwraca iterator do wierzcholka w wektorze synow, ktory reprezentuje
-		// wirus o identyfikatorze child_id
 		//usun dziecko
 		auto it = get_iterator_to_child_ptr(parent, child_id);
 		assert(it != parent->_children.end());

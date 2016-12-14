@@ -40,6 +40,8 @@ int main() {
   assert(gen.exists("B"));
   assert(gen.exists("C"));
   assert(gen.exists("D"));
+  assert(gen.get_parents("C").size() == 1);
+  assert(gen.get_children("B").size() == 2);
   gen.remove("B");
   assert(!gen.exists("A"));
   assert(!gen.exists("B"));
