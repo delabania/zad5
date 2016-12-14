@@ -153,9 +153,11 @@ public:
 		parent_node_shared_ptr->_children.push_back(child_node_shared_ptr);
 	}
 	void remove(id_type const & id) {
-		
+		if(_stem->_virus->get_id() == id)
+			throw new TriedToRemoveStemVirus();
+		auto current_node = get_node_shared_ptr(id);
+		//@TODO: usun dziecko z rodzica
 	}
-
 private:
 
 	// struktura na przechowywanie wierzcholkow grafu genealogii -> moze klasa z publicznymi getterami setteram?
