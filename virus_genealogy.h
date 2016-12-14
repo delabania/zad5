@@ -8,20 +8,7 @@
 
 // Pomocniczo, zeby sprawdzic czy sie kompiluje
 // Do usuniecia po skonczeniu
-#include <string>
 
-
-class Virus {
-public:
-	typedef typename std::string id_type;
-	Virus(id_type const &_id) : id(_id) {
-	}
-	id_type get_id() const {
-		return id;
-	}
-private:
-	id_type id;
-};
 // koniec pomocniczych deklaracji
 
 /* WAZNE INFO Z TRESCI
@@ -49,7 +36,6 @@ class TriedToRemoveStemVirus : public std::exception {
 };
 
 
-//@TODO : ktore smart-pointery uzyc w konkretnym przypadku?
 //@TODO : wyjatki - nie ma poki co zadnej odpornosci na wyjatki!
 //@TODO : sprawdzanie czy wirus istnieje i wyrzucanie wyjatku, opakowac w 1 funkcje prywatna
 // 		  zamiast copy-pasty
@@ -70,7 +56,7 @@ public:
 
 
 	id_type get_stem_id() const {
-		return _stem._virus->get_id();
+		return _stem->_virus->get_id();
 	}
 
 
@@ -81,52 +67,57 @@ public:
 
 	//@TODO : straszny copypaste z get_parents! Wydzielic do jednej funkcji
 	std::vector<id_type> get_children(id_type const &id) const {
-		// wyszukaj wezel o numerze id, gdy nie istnieje rzuc wyjatek => prywatna funkcja get_node
-		auto current = get_node(id);
+		// wyszukaj wezel o numerze id, gdy nie istnieje rzuc wyjatek => wewnatrz funkcji get_node_shared_ptr
+		auto current = get_node_shared_ptr(id);
 		std::vector<id_type> children;
-		// current->_children to wektor <weak_ptr> nastepnikow (dzieci) wezla current
+		// current->_children to wektor <shared_ptr> nastepnikow (dzieci) wezla current
 		for (auto & node_ptr : current->_children)
-			children.push_back(node_ptr->_virus->_get_id());
+			children.push_back(node_ptr->_virus->get_id());
 		return children;
 	}
 
 
 	std::vector<id_type> get_parents(id_type const &id) const {
 		// analogicznie jak w get_children
-		auto current = get_node(id);
+		auto current = get_node_shared_ptr(id);
 		std::vector<id_type> parents;
 		// current->_parent to wektor <weak_ptr> nastepnikow (dzieci) wezla current
-		for (auto & node_ptr : current->_parents)
-			parents.push_back(node_ptr->_virus->_get_id());
+		// przed uzyciem
+		for (auto & node_ptr : current->_parents) {
+			if (!node_ptr.expired()) {
+				auto ptr = node_ptr.lock();
+				parents.push_back(ptr->_virus->get_id());
+			}
+		}
+
 		return parents;
 
 	}
 
 
 	Virus& operator[](id_type const & id) const {
-		// node_ptr to weak_ptr do wezla reprezentujacego wirus o identyfikatorze id
-		auto node_ptr = get_node(id);
-		return node_ptr->_virus;
+		// node_ptr to shared_ptr do wezla reprezentujacego wirus o identyfikatorze id
+		auto node_ptr = get_node_shared_ptr(id);
+		return *(node_ptr->_virus);
 	}
 
 	void create(id_type const & id, id_type const & parent_id) {
 		auto it = _all_nodes.find(id);
 		if (it != _all_nodes.end())
 			throw new VirusAlreadyCreated();
-		auto parent_node_ptr = get_node(parent_id);
+		auto parent_node_shared_ptr = get_node_shared_ptr(parent_id);
 		// wszystko jest ok => stworz nowy wezel
-		auto node_ptr = std::make_shared<node>(id);
+		auto node_shared_ptr = std::make_shared<node>(id);
 		// wstaw do mapy aktualny wierzcholek
-		_all_nodes[id] = node_ptr;
+		_all_nodes[id] = node_shared_ptr;
 
-		// stworz pomocnicze slabe wskazniki
-		std::weak_ptr<node> parent_weak_ptr = parent_node_ptr;
-		std::weak_ptr<node> current_weak_ptr = node_ptr;
+		// stworz pomocniczy slaby wskaznik do ojca
+		std::weak_ptr<node> parent_weak_ptr = parent_node_shared_ptr;
 
 		// dodaj nowe dziecko do ojca
-		parent_weak_ptr->_children.push_back(current_weak_ptr);
+		parent_node_shared_ptr->_children.push_back(node_shared_ptr);
 		// uzyj slabego wskaznika na ojca zeby wstawic go do listy ojcow aktualnego wezla
-		current_weak_ptr->_parents.push_back(parent_weak_ptr);
+		node_shared_ptr->_parents.push_back(parent_weak_ptr);
 	}
 
 	//@TODO : znowu copypaste!
@@ -135,63 +126,54 @@ public:
 		if (it != _all_nodes.end())
 			throw new VirusAlreadyCreated();
 		// wektor wskaznikow do potencjalnych ojcow
-		std::vector <std::weak_ptr<node> > parent_nodes;
+		std::vector <std::shared_ptr<node> > parent_nodes;
 		// dla kazdego id wstaw do wektora weak_ptr do danego wezla
-		for (auto & parent_id : parent_ids)
-			// CO Z WYJATKAMI?
-			parent_nodes.push_back(get_node(parent_id));
+		for (auto & parent_id : parent_ids) {
+			parent_nodes.push_back(get_node_shared_ptr(parent_id));
+		}
 
 		//dalej analogicznie jak w metodzie create z jednym ojcem
 		auto node_ptr = std::make_shared<node>(id);
 		// wstaw do mapy aktualny wierzcholek
 		_all_nodes[id] = node_ptr;
-		std::weak_ptr<node> current_weak_ptr = node_ptr;
 
 
 		for (auto & parent_node_ptr : parent_nodes) {
 			std::weak_ptr<node> parent_weak_ptr = parent_node_ptr;
-			parent_weak_ptr->_children.push_back(current_weak_ptr);
-			current_weak_ptr->_parents.push_back(parent_weak_ptr);
+			parent_node_ptr->_children.push_back(node_ptr);
+			node_ptr->_parents.push_back(parent_weak_ptr);
 		}
 	}
 	void connect(id_type const & child_id, id_type const & parent_id) {
-		auto child_node_weak_ptr = get_node(child_id);
-		auto parent_node_weak_ptr = get_node(parent_id);
-		child_node_weak_ptr->_parents.push_back(parent_node_weak_ptr);
-		// przekonwertuj weak_ptr na shared_ptr
-		std::shared_ptr<node> child_node_shared_ptr = child_node_weak_ptr.lock();
-		parent_node_weak_ptr->_children.push_back(child_node_shared_ptr);
+		auto child_node_shared_ptr = get_node_shared_ptr(child_id);
+		auto parent_node_shared_ptr = get_node_shared_ptr(parent_id);
+		auto parent_node_weak_ptr = parent_node_shared_ptr;
+
+		child_node_shared_ptr->_parents.push_back(parent_node_weak_ptr);
+		parent_node_shared_ptr->_children.push_back(child_node_shared_ptr);
 	}
-	void remove(id_type const & id);
+	void remove(id_type const & id) {
+		
+	}
 
 private:
 
-	class Node {
-	private:
+	// struktura na przechowywanie wierzcholkow grafu genealogii -> moze klasa z publicznymi getterami setteram?
+	struct node {
 		//http://stackoverflow.com/questions/27348396/smart-pointers-for-graph-representation-vertex-neighbors-in-c11
 		std::unique_ptr<Virus> _virus;
-		std::vector<std::shared_ptr<Node> > _children;
-		std::vector<std::weak_ptr<Node> > _parents;
-
-	public:
-		Node(id_type const & stem_id) {
+		std::vector<std::shared_ptr<node> > _children;
+		std::vector<std::weak_ptr<node> > _parents;
+		node(id_type const & stem_id) {
 			_virus = std::make_unique<Virus>(stem_id);
 		}
 
-		id_type get_id() {
-			return _virus->get_id();
-		}
-
-		Virus get_virus() {
-			return *_virus;
-		}
-
 		std::vector<id_type> get_parents() const noexcept {
-			std::vector result;
+			std::vector<id_type> result;
 
 			for (size_t i = 0; i < _parents.size(); ++i) {
 				if (!_parents[i].expired()) {
-					std::shared_ptr<Node> n = _parents[i].lock();
+					std::shared_ptr<node> n = _parents[i].lock();
 					result.push_back(n->get_id());
 				}
 			}
@@ -200,7 +182,7 @@ private:
 		}
 
 		std::vector<id_type> get_children() const noexcept {
-			std::vector result;
+			std::vector<id_type> result;
 
 			for (size_t i = 0; i < _children.size(); ++i) {
 				result.push_back(_children[i]->get_id());
@@ -214,14 +196,15 @@ private:
 	// wirus macierzysty
 	std::shared_ptr<node> _stem;
 
-	// zwraca weak_ptr do wirusa o numerze id, albo gdy ten nie istnieje wyrzuca wyjatek
-	auto get_node(id_type const & id) const {
+	// zwraca shared_ptr do wirusa o numerze id, albo gdy ten nie istnieje wyrzuca wyjatek
+	auto get_node_shared_ptr(id_type const & id) const {
 		auto it = _all_nodes.find(id);
-		if (it == _all_nodes.end())
+		if (it == _all_nodes.end() || it->second.expired())
 			throw new VirusNotFound();
 		// it to iterator wskazujacy na pare <id, std:weak_ptr<node>>
-		// *(it->second) jest typu std::weak_ptr<node>
-		return (it->second);
+		// (*it)->second jest typu std::weak_ptr<node>
+		auto ptr = it->second.lock();
+		return ptr;
 	}
 
 };

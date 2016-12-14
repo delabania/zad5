@@ -27,3 +27,6 @@
 *.exe
 *.out
 *.app
+
+# Trash
+simple_test.cc
