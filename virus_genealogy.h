@@ -66,7 +66,7 @@ public:
 	}
 
 
-	bool exists(id_type const &id) const {
+	bool exists(id_type const &id) const noexcept {
 		auto it = _all_nodes.find(id);
 		// jezeli nie wezla w mapie, albo jest, ale wczesniej zostal usuniety 
 		if(it == _all_nodes.end() || it->second.expired())
@@ -205,29 +205,6 @@ private:
 		node(id_type const & stem_id) {
 			_virus = std::make_unique<Virus>(stem_id);
 		}
-
-		std::vector<id_type> get_parents() const noexcept {
-			std::vector<id_type> result;
-
-			for (size_t i = 0; i < _parents.size(); ++i) {
-				if (!_parents[i].expired()) {
-					std::shared_ptr<node> n = _parents[i].lock();
-					result.push_back(n->get_id());
-				}
-			}
-
-			return result;
-		}
-
-		std::vector<id_type> get_children() const noexcept {
-			std::vector<id_type> result;
-
-			for (size_t i = 0; i < _children.size(); ++i) {
-				result.push_back(_children[i]->get_id());
-			}
-
-			return result;
-		}
 	};
 	// mapa wszystkich potomkow wirusa
 	std::map<id_type, std::weak_ptr<node> > _all_nodes;
@@ -245,6 +222,7 @@ private:
 		return ptr;
 	}
 
+    //Nie wiem czy jest najlepszym pomysłem wrzucanie tu shared_pointer w parametrze - chyba byłoby lepiej przekazać const & parent
 	auto get_iterator_to_child_ptr(std::shared_ptr<node> parent, id_type const & child_id) {
 		auto it = std::find_if (parent->_children.begin(), parent->_children.end(),
 		[&child_id](std::shared_ptr<node> child) {
