@@ -7,21 +7,6 @@
 #include <map>
 #include <cassert>
 
-#include <iostream>
-
-
-// Pomocniczo, zeby sprawdzic czy sie kompiluje
-// Do usuniecia po skonczeniu
-
-// koniec pomocniczych deklaracji
-
-/* WAZNE INFO Z TRESCI
- * wszystkie metody klasy VirusGenealogy powinny gwarantować silną odporność
-   na wyjątki, a tam, gdzie to jest możliwe i pożądane, powinny być no-throw;
- * wyszukiwanie wirusów powinno być szybsze niż liniowe.
- * zarządzanie pamięcią powinno być zrealizowane za pomocą sprytnych wskaźników
-   z biblioteki standardowej.
-*/
 
 class VirusNotFound : public std::exception {
 	virtual const char* what() const throw() {
