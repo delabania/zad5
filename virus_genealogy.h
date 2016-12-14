@@ -42,7 +42,7 @@ public:
 	VirusGenealogy(id_type const &stem_id) :
 		_stem(std::make_shared<node>(stem_id)) {
 		// stworz wierzcholek z wirusem macierzystym i dodaj do mapy
-		_all_nodes.insert(make_pair(stem_id, _stem));
+		_all_nodes.emplace(stem_id, _stem);
 	}
 
 
@@ -199,6 +199,16 @@ private:
 		assert(it != parent->_children.end());
 		parent->_children.erase(it);
 	}
+
+    std::shared_ptr<node> make_new_node(id_type const & id) {
+        try {
+            auto new_node = std::make_shared<node>(id);
+            _all_nodes.emplace(id, new_node);
+            return new_node;
+        } catch (std::exception& e) {
+            throw;
+        }
+    }
 
 };
 
