@@ -155,8 +155,14 @@ public:
 	void remove(id_type const & id) {
 		if(_stem->_virus->get_id() == id)
 			throw new TriedToRemoveStemVirus();
-		auto current_node = get_node_shared_ptr(id);
+		auto node_to_remove = get_node_shared_ptr(id);
 		//@TODO: usun dziecko z rodzica
+		// usun wskaznik z rodzica do aktualnego wierzcholka
+		/* usun wskazniki na synow - jezeli jakis syn stanie sie
+		 * nowym korzeniem, to ze wzgledu na to ze nie bedzie wskazywal
+		 * na niego zaden shared_pointer to zostanie usuniety razem z wirusem
+		 * ktorego reprezentuje
+		 */
 	}
 private:
 
