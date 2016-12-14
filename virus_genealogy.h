@@ -7,6 +7,8 @@
 #include <map>
 #include <cassert>
 
+#include <iostream>
+
 
 class VirusNotFound : public std::exception {
 	virtual const char* what() const throw() {
@@ -29,7 +31,7 @@ class TriedToRemoveStemVirus : public std::exception {
 
 //@TODO : wyjatki - nie ma poki co zadnej odpornosci na wyjatki!
 //@TODO : sprawdzanie czy wirus istnieje i wyrzucanie wyjatku, opakowac w 1 funkcje prywatna
-// 		  zamiast copy-pasty
+//TODO wszystkie zmiany obiektów powinny odbywać się na kopiach obiektow, a następnie wykonywanie swap()
 template <class Virus>
 class VirusGenealogy {
 	using id_type = typename Virus::id_type;
@@ -39,6 +41,7 @@ public:
 	VirusGenealogy & operator=(const VirusGenealogy &) = delete;
 
 
+    //TODO zabezpieczyć to z try/catch
 	VirusGenealogy(id_type const &stem_id) {
 		// stworz wierzcholek z wirusem macierzystym i dodaj do mapy
 		_stem = std::make_shared<node>(stem_id);
@@ -54,12 +57,12 @@ public:
 	bool exists(id_type const &id) const noexcept {
 		auto it = _all_nodes.find(id);
 		// jezeli nie wezla w mapie, albo jest, ale wczesniej zostal usuniety 
-		if(it == _all_nodes.end() || it->second.expired())
-			return false;
-		// jest w mapie i jest nadal aktywny
-		return true;
+		if(it == _all_nodes.end() || it->second.expired()) {
+            return false;
+        } else { // jest w mapie i jest nadal aktywny
+            return true;
+        }
 	}
-
 
 	//@TODO : straszny copypaste z get_parents! Wydzielic do jednej funkcji
 	std::vector<id_type> get_children(id_type const &id) const {
@@ -72,7 +75,7 @@ public:
 		return children;
 	}
 
-
+    //TODO w razie wyjątku trzeba usunąć to co stowrzyliśmy dotychczas - te shared_ptr nowe
 	std::vector<id_type> get_parents(id_type const &id) const {
 		// analogicznie jak w get_children
 		auto current = get_node_shared_ptr(id);
@@ -85,11 +88,8 @@ public:
 				parents.push_back(ptr->_virus->get_id());
 			}
 		}
-
 		return parents;
-
 	}
-
 
 	Virus& operator[](id_type const & id) const {
 		// node_ptr to shared_ptr do wezla reprezentujacego wirus o identyfikatorze id
@@ -97,69 +97,45 @@ public:
 		return *(node_ptr->_virus);
 	}
 
+    //TODO prawdopodobnie trzeba opakować make_new_node w try/catch
 	void create(id_type const & id, id_type const & parent_id) {
-		auto it = _all_nodes.find(id);
-		if (it != _all_nodes.end() && !it->second.expired())
-			throw virus_already_created;
-		auto parent_node_shared_ptr = get_node_shared_ptr(parent_id);
-		// wszystko jest ok => stworz nowy wezel
-		auto node_shared_ptr = std::make_shared<node>(id);
-		// wstaw do mapy aktualny wierzcholek
-		_all_nodes[id] = node_shared_ptr;
-
-		// stworz pomocniczy slaby wskaznik do ojca
-		std::weak_ptr<node> parent_weak_ptr = parent_node_shared_ptr;
-
-		// dodaj nowe dziecko do ojca
-		parent_node_shared_ptr->_children.push_back(node_shared_ptr);
-		// uzyj slabego wskaznika na ojca zeby wstawic go do listy ojcow aktualnego wezla
-		node_shared_ptr->_parents.push_back(parent_weak_ptr);
+        if (exists(id)) throw virus_already_created;
+        auto temp_ptr = make_new_node(id);
+        connect(id, parent_id);
 	}
 
-	//@TODO : znowu copypaste!
 	void create(id_type const & id, std::vector<id_type> const & parent_ids) {
-		auto it = _all_nodes.find(id);
-		if (it != _all_nodes.end() && !it->second.expired())
+		if (exists(id))
 			throw virus_already_created;
 		if (parent_ids.size() == 0)
 			throw virus_not_found;
-		// wektor wskaznikow do potencjalnych ojcow
-		std::vector <std::shared_ptr<node> > parent_nodes;
-		// dla kazdego id wstaw do wektora weak_ptr do danego wezla
-		for (auto & parent_id : parent_ids) {
-			parent_nodes.push_back(get_node_shared_ptr(parent_id));
-		}
 
-		//dalej analogicznie jak w metodzie create z jednym ojcem
-		auto node_ptr = std::make_shared<node>(id);
-		// wstaw do mapy aktualny wierzcholek
-		_all_nodes[id] = node_ptr;
+        auto temp_ptr = make_new_node(id);
 
-
-		for (auto & parent_node_ptr : parent_nodes) {
-			std::weak_ptr<node> parent_weak_ptr = parent_node_ptr;
-			parent_node_ptr->_children.push_back(node_ptr);
-			node_ptr->_parents.push_back(parent_weak_ptr);
-		}
+        for (auto & parent_id : parent_ids) {
+            connect(id, parent_id);
+        }
 	}
 
-
-	//@TODO : jezeli krawedz istnieje
 	void connect(id_type const & child_id, id_type const & parent_id) {
-		auto parent_node_shared_ptr = get_node_shared_ptr(parent_id);
-		// Jesli krawedz istnieje to nic nie rob
-		if (get_iterator_to_child_ptr(parent_node_shared_ptr, child_id) !=
-		        parent_node_shared_ptr->_children.end())
-			return;
-		// Wpp stworz polaczenie miedzy ojcem a dzieckiem
-		auto parent_node_weak_ptr = parent_node_shared_ptr;
-		auto child_node_shared_ptr = get_node_shared_ptr(child_id);
+		if (exists(parent_id) && exists(child_id)) {
+            std::shared_ptr<node> parent_node_shared_ptr = _all_nodes.find(parent_id)->second.lock();
 
-		child_node_shared_ptr->_parents.push_back(parent_node_weak_ptr);
-		parent_node_shared_ptr->_children.push_back(child_node_shared_ptr);
+            if (get_iterator_to_child_ptr(parent_node_shared_ptr, child_id) !=
+                parent_node_shared_ptr->_children.end()) return;
+
+            // Wpp stworz polaczenie miedzy ojcem a dzieckiem
+            std::shared_ptr<node> child_node_shared_ptr = _all_nodes.find(child_id)->second.lock();
+            std::weak_ptr<node> parent_node_weak_ptr = parent_node_shared_ptr;
+
+            child_node_shared_ptr->_parents.push_back(parent_node_weak_ptr);
+            parent_node_shared_ptr->_children.push_back(child_node_shared_ptr);
+        }
 	}
 
-
+    //na koniec remove trzeba się przejechać chyba po mapie i usunąć wszystko z expired node'ami
+    //usuwamy się - czy weak pointery z wektorów dzieci do rodziców usuną się po usunięciu node na który wskazują?
+    //nie wynika to ze specyfikacji
 	void remove(id_type const & id) {
 		if (_stem->_virus->get_id() == id)
 			throw tried_to_remove_stem_virus;
@@ -187,6 +163,7 @@ private:
 		std::unique_ptr<Virus> _virus;
 		std::vector<std::shared_ptr<node> > _children;
 		std::vector<std::weak_ptr<node> > _parents;
+
 		node(id_type const & stem_id) {
 			_virus = std::make_unique<Virus>(stem_id);
 		}
@@ -195,6 +172,18 @@ private:
 	std::map<id_type, std::weak_ptr<node> > _all_nodes;
 	// wirus macierzysty
 	std::shared_ptr<node> _stem;
+
+    std::shared_ptr<node> make_new_node(id_type const & id) {
+        // wstaw do mapy aktualny wierzcholek
+        try {
+            auto node_ptr = std::make_shared<node>(id);
+            _all_nodes[id] = node_ptr;
+            return node_ptr;
+            //_all_nodes.emplace(id, node_ptr);
+        } catch (std::exception& e) {
+            throw;
+        }
+    }
 
 	// zwraca shared_ptr do wirusa o numerze id, albo gdy ten nie istnieje wyrzuca wyjatek
 	std::shared_ptr<node> get_node_shared_ptr(id_type const & id) const {
