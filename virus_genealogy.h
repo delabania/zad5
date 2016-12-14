@@ -127,6 +127,8 @@ public:
 		auto it = _all_nodes.find(id);
 		if (it != _all_nodes.end())
 			throw new VirusAlreadyCreated();
+		if (parent_ids.size() == 0)
+			throw new VirusNotFound();
 		// wektor wskaznikow do potencjalnych ojcow
 		std::vector <std::shared_ptr<node> > parent_nodes;
 		// dla kazdego id wstaw do wektora weak_ptr do danego wezla
@@ -148,27 +150,33 @@ public:
 	}
 
 
+	//@TODO : jezeli krawedz istnieje
 	void connect(id_type const & child_id, id_type const & parent_id) {
-		auto child_node_shared_ptr = get_node_shared_ptr(child_id);
 		auto parent_node_shared_ptr = get_node_shared_ptr(parent_id);
+		// Jesli krawedz istnieje to nic nie rob
+		if(get_iterator_to_child_ptr(parent_node_shared_ptr, child_id) != 
+			parent_node_shared_ptr->_children.end())
+			return;
+		// Wpp stworz polaczenie miedzy ojcem a dzieckiem
 		auto parent_node_weak_ptr = parent_node_shared_ptr;
+		auto child_node_shared_ptr = get_node_shared_ptr(child_id);
 
 		child_node_shared_ptr->_parents.push_back(parent_node_weak_ptr);
 		parent_node_shared_ptr->_children.push_back(child_node_shared_ptr);
 	}
 
-	//@TODO : delete_child
+
 	void remove(id_type const & id) {
-		if(_stem->_virus->get_id() == id)
+		if (_stem->_virus->get_id() == id)
 			throw new TriedToRemoveStemVirus();
 		auto node_to_remove = get_node_shared_ptr(id);
-		//@TODO: usun dziecko z rodzica
-		// usun wskaznik ze wszystkich rodzicow do aktualnego wierzcholka
-		for(auto &parent_node_weak_ptr : node_to_remove->_parents) {
-			if(!parent_node_weak_ptr.expired()){
+		assert(node_to_remove->_virus->get_id() == id);
+
+		// usun wskaznik do aktualnego wierzcholka ze wszystkich jego rodzicow
+		for (auto & parent_node_weak_ptr : node_to_remove->_parents) {
+			if (!parent_node_weak_ptr.expired()) {
 				auto parent_node_shared_ptr = parent_node_weak_ptr.lock();
-				//@TODO : delete_child
-				delete_child(parent_node_shared_ptr, id);
+				delete_ptr_to_child(parent_node_shared_ptr, id);
 			}
 		}
 		/* usun wskazniki na synow - jezeli jakis syn stanie sie
@@ -176,7 +184,17 @@ public:
 		 * na niego zaden shared_pointer to zostanie usuniety razem z wirusem
 		 * ktorego reprezentuje
 		 */
+		node_to_remove->_children.clear();
+		// usun z mapy
+		_all_nodes.erase(id);
+
+		// DO PRZEMYSLENIA I PRZEGADANIA
+		// pytanie czy nie trzeba jeszcze usuwac wskaznika na ojca u dzieci?
+		// jest to weak_ptr wiec teoretycznie nic to nie psuje, ale moze jest
+		// to troche niewydajne?
 	}
+
+
 private:
 
 	// struktura na przechowywanie wierzcholkow grafu genealogii -> moze klasa z publicznymi getterami setteram?
@@ -228,14 +246,19 @@ private:
 		return ptr;
 	}
 
-	void delete_child(std::shared_ptr<node> parent, id_type const & child_id) {
+	auto get_iterator_to_child_ptr(std::shared_ptr<node> parent, id_type const & child_id) {
+		auto it = std::find_if (parent->_children.begin(), parent->_children.end(),
+		[child_id](std::shared_ptr<node> child) {
+			return child->_virus->get_id() == child_id;
+		});
+		return it;
+	}
+
+	void delete_ptr_to_child(std::shared_ptr<node> parent, id_type const & child_id) {
 		// zwraca iterator do wierzcholka w wektorze synow, ktory reprezentuje
 		// wirus o identyfikatorze child_id
-		auto it = std::find_if (parent->_children.begin(), parent->_children.end(), 
-			[child_id](std::shared_ptr<node> child){
-				return child->_virus->get_id() == child_id;
-			});
 		//usun dziecko
+		auto it = get_iterator_to_child_ptr(parent, child_id);
 		assert(it != parent->_children.end());
 		parent->_children.erase(it);
 	}
