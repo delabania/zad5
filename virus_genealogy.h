@@ -2,8 +2,10 @@
 #define __VIRUS_GENEALOGY__
 
 #include <vector>
+#include <algorithm>
 #include <memory>
 #include <map>
+#include <cassert>
 
 
 // Pomocniczo, zeby sprawdzic czy sie kompiluje
@@ -144,6 +146,8 @@ public:
 			node_ptr->_parents.push_back(parent_weak_ptr);
 		}
 	}
+
+
 	void connect(id_type const & child_id, id_type const & parent_id) {
 		auto child_node_shared_ptr = get_node_shared_ptr(child_id);
 		auto parent_node_shared_ptr = get_node_shared_ptr(parent_id);
@@ -152,12 +156,21 @@ public:
 		child_node_shared_ptr->_parents.push_back(parent_node_weak_ptr);
 		parent_node_shared_ptr->_children.push_back(child_node_shared_ptr);
 	}
+
+	//@TODO : delete_child
 	void remove(id_type const & id) {
 		if(_stem->_virus->get_id() == id)
 			throw new TriedToRemoveStemVirus();
 		auto node_to_remove = get_node_shared_ptr(id);
 		//@TODO: usun dziecko z rodzica
-		// usun wskaznik z rodzica do aktualnego wierzcholka
+		// usun wskaznik ze wszystkich rodzicow do aktualnego wierzcholka
+		for(auto &parent_node_weak_ptr : node_to_remove->_parents) {
+			if(!parent_node_weak_ptr.expired()){
+				auto parent_node_shared_ptr = parent_node_weak_ptr.lock();
+				//@TODO : delete_child
+				delete_child(parent_node_shared_ptr, id);
+			}
+		}
 		/* usun wskazniki na synow - jezeli jakis syn stanie sie
 		 * nowym korzeniem, to ze wzgledu na to ze nie bedzie wskazywal
 		 * na niego zaden shared_pointer to zostanie usuniety razem z wirusem
@@ -213,6 +226,18 @@ private:
 		// (*it)->second jest typu std::weak_ptr<node>
 		auto ptr = it->second.lock();
 		return ptr;
+	}
+
+	void delete_child(std::shared_ptr<node> parent, id_type const & child_id) {
+		// zwraca iterator do wierzcholka w wektorze synow, ktory reprezentuje
+		// wirus o identyfikatorze child_id
+		auto it = std::find_if (parent->_children.begin(), parent->_children.end(), 
+			[child_id](std::shared_ptr<node> child){
+				return child->_virus->get_id() == child_id;
+			});
+		//usun dziecko
+		assert(it != parent->_children.end());
+		parent->_children.erase(it);
 	}
 
 };
