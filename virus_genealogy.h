@@ -54,11 +54,11 @@ public:
 	bool exists(id_type const &id) const noexcept {
 		auto it = _all_nodes.find(id);
 		// jezeli nie wezla w mapie, albo jest, ale wczesniej zostal usuniety
-		if(it == _all_nodes.end() || it->second.expired()) {
-            return false;
-        } else { // jest w mapie i jest nadal aktywny
-            return true;
-        }
+		if (it == _all_nodes.end() || it->second.expired()) {
+			return false;
+		} else { // jest w mapie i jest nadal aktywny
+			return true;
+		}
 	}
 
 	//@TODO : straszny copypaste z get_parents! Wydzielic do jednej funkcji
@@ -72,7 +72,7 @@ public:
 		return children;
 	}
 
-    //TODO w razie wyjątku trzeba usunąć to co stowrzyliśmy dotychczas - te shared_ptr nowe
+	//TODO w razie wyjątku trzeba usunąć to co stowrzyliśmy dotychczas - te shared_ptr nowe
 	std::vector<id_type> get_parents(id_type const &id) const {
 		// analogicznie jak w get_children
 		auto current = get_node_shared_ptr(id);
@@ -97,11 +97,11 @@ public:
 		return *(node_ptr->_virus);
 	}
 
-    //TODO prawdopodobnie trzeba opakować make_new_node w try/catch
+	//TODO prawdopodobnie trzeba opakować make_new_node w try/catch
 	void create(id_type const & id, id_type const & parent_id) {
-        if (exists(id)) throw virus_already_created;
-        auto temp_ptr = make_new_node(id);
-        connect(id, parent_id);
+		if (exists(id)) throw virus_already_created;
+		auto temp_ptr = make_new_node(id);
+		connect(id, parent_id);
 	}
 
 	void create(id_type const & id, std::vector<id_type> const & parent_ids) {
@@ -110,32 +110,34 @@ public:
 		if (parent_ids.size() == 0)
 			throw virus_not_found;
 
-        auto temp_ptr = make_new_node(id);
+		auto temp_ptr = make_new_node(id);
 
-        for (auto & parent_id : parent_ids) {
-            connect(id, parent_id);
-        }
+		for (auto & parent_id : parent_ids) {
+			connect(id, parent_id);
+		}
 	}
 
 	void connect(id_type const & child_id, id_type const & parent_id) {
-		if (exists(parent_id) && exists(child_id)) {
-            std::shared_ptr<node> parent_node_shared_ptr = _all_nodes.find(parent_id)->second.lock();
+		if (!exists(parent_id) || !exists(child_id))
+			throw virus_not_found;
+		
+		std::shared_ptr<node> parent_node_shared_ptr = _all_nodes.find(parent_id)->second.lock();
 
-            if (get_iterator_to_child_ptr(parent_node_shared_ptr, child_id) !=
-                parent_node_shared_ptr->_children.end()) return;
+		if (get_iterator_to_child_ptr(parent_node_shared_ptr, child_id) !=
+		        parent_node_shared_ptr->_children.end()) return;
 
-            // Wpp stworz polaczenie miedzy ojcem a dzieckiem
-            std::shared_ptr<node> child_node_shared_ptr = _all_nodes.find(child_id)->second.lock();
-            std::weak_ptr<node> parent_node_weak_ptr = parent_node_shared_ptr;
+		// Wpp stworz polaczenie miedzy ojcem a dzieckiem
+		std::shared_ptr<node> child_node_shared_ptr = _all_nodes.find(child_id)->second.lock();
+		std::weak_ptr<node> parent_node_weak_ptr = parent_node_shared_ptr;
 
-            child_node_shared_ptr->_parents.push_back(parent_node_weak_ptr);
-            parent_node_shared_ptr->_children.push_back(child_node_shared_ptr);
-        }
+		child_node_shared_ptr->_parents.push_back(parent_node_weak_ptr);
+		parent_node_shared_ptr->_children.push_back(child_node_shared_ptr);
+
 	}
 
-    //na koniec remove trzeba się przejechać chyba po mapie i usunąć wszystko z expired node'ami
-    //usuwamy się - czy weak pointery z wektorów dzieci do rodziców usuną się po usunięciu node na który wskazują?
-    //nie wynika to ze specyfikacji
+	//na koniec remove trzeba się przejechać chyba po mapie i usunąć wszystko z expired node'ami
+	//usuwamy się - czy weak pointery z wektorów dzieci do rodziców usuną się po usunięciu node na który wskazują?
+	//nie wynika to ze specyfikacji
 	void remove(id_type const & id) {
 		if (_stem->_virus->get_id() == id)
 			throw tried_to_remove_stem_virus;
@@ -200,15 +202,15 @@ private:
 		parent->_children.erase(it);
 	}
 
-    std::shared_ptr<node> make_new_node(id_type const & id) {
-        try {
-            auto new_node = std::make_shared<node>(id);
-            _all_nodes.emplace(id, new_node);
-            return new_node;
-        } catch (std::exception& e) {
-            throw;
-        }
-    }
+	std::shared_ptr<node> make_new_node(id_type const & id) {
+		try {
+			auto new_node = std::make_shared<node>(id);
+			_all_nodes.emplace(id, new_node);
+			return new_node;
+		} catch (std::exception& e) {
+			throw;
+		}
+	}
 
 };
 
