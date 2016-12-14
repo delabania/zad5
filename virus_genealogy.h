@@ -39,9 +39,9 @@ public:
 	VirusGenealogy & operator=(const VirusGenealogy &) = delete;
 
 
-	VirusGenealogy(id_type const &stem_id) {
+	VirusGenealogy(id_type const &stem_id) :
+		_stem(std::make_shared<node>(stem_id)) {
 		// stworz wierzcholek z wirusem macierzystym i dodaj do mapy
-		_stem = std::make_shared<node>(stem_id);
 		_all_nodes.insert(make_pair(stem_id, _stem));
 	}
 
@@ -53,8 +53,8 @@ public:
 
 	bool exists(id_type const &id) const noexcept {
 		auto it = _all_nodes.find(id);
-		// jezeli nie wezla w mapie, albo jest, ale wczesniej zostal usuniety 
-		if(it == _all_nodes.end() || it->second.expired())
+		// jezeli nie ma wezla w mapie, albo jest, ale wczesniej zostal usuniety
+		if (it == _all_nodes.end() || it->second.expired())
 			return false;
 		// jest w mapie i jest nadal aktywny
 		return true;
@@ -144,7 +144,6 @@ public:
 	}
 
 
-	//@TODO : jezeli krawedz istnieje
 	void connect(id_type const & child_id, id_type const & parent_id) {
 		auto parent_node_shared_ptr = get_node_shared_ptr(parent_id);
 		// Jesli krawedz istnieje to nic nie rob
@@ -187,9 +186,8 @@ private:
 		std::unique_ptr<Virus> _virus;
 		std::vector<std::shared_ptr<node> > _children;
 		std::vector<std::weak_ptr<node> > _parents;
-		node(id_type const & stem_id) {
-			_virus = std::make_unique<Virus>(stem_id);
-		}
+		node(id_type const & stem_id) :
+			_virus(std::make_unique<Virus>(stem_id)) {}
 	};
 	// mapa wszystkich potomkow wirusa
 	std::map<id_type, std::weak_ptr<node> > _all_nodes;
@@ -207,8 +205,8 @@ private:
 		return ptr;
 	}
 
-    //Nie wiem czy jest najlepszym pomysłem wrzucanie tu shared_pointer w parametrze - chyba byłoby lepiej przekazać const & parent
-	auto get_iterator_to_child_ptr(std::shared_ptr<node> parent, id_type const & child_id) {
+	//Nie wiem czy jest najlepszym pomysłem wrzucanie tu shared_pointer w parametrze - chyba byłoby lepiej przekazać const & parent
+	auto get_iterator_to_child_ptr(const std::shared_ptr<node> & parent, id_type const & child_id) {
 		auto it = std::find_if (parent->_children.begin(), parent->_children.end(),
 		[&child_id](std::shared_ptr<node> child) {
 			return child->_virus->get_id() == child_id;
@@ -218,7 +216,7 @@ private:
 
 	// zwraca iterator do wierzcholka w wektorze synow, ktory reprezentuje
 	// wirus o identyfikatorze child_id
-	void delete_ptr_to_child(std::shared_ptr<node> parent, id_type const & child_id) {
+	void delete_ptr_to_child(const std::shared_ptr<node> & parent, id_type const & child_id) {
 		//usun dziecko
 		auto it = get_iterator_to_child_ptr(parent, child_id);
 		assert(it != parent->_children.end());
