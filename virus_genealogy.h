@@ -2,9 +2,10 @@
 #define __VIRUS_GENEALOGY__
 
 #include <vector>
+#include <map>
+#include <utility>
 #include <algorithm>
 #include <memory>
-#include <map>
 #include <cassert>
 
 
@@ -115,12 +116,7 @@ public:
         if (exists(id)) throw virus_already_created;
         std::shared_ptr<node> temp_ptr = make_new_node(id);
 
-        try {
-            connect(id, parent_id);
-        } catch (std::exception &e) {
-            throw;
-        }
-
+        connect(id, parent_id);
     }
 
     /**
@@ -131,15 +127,34 @@ public:
     void create(id_type const &id, std::vector<id_type> const &parent_ids) {
         if (exists(id)) throw virus_already_created;
         if (parent_ids.size() == 0) throw virus_not_found;
+        for (auto & parent_id : parent_ids)
+            if (!exists(parent_id)) throw virus_not_found;
         std::shared_ptr<node> temp_ptr = make_new_node(id);
 
+        // Skopiuj wektory dzieci wszystkich ojcow, oraz wrzuc wskazniki na ojcow do nowego wezla
+        std::map<id_type, std::vector<std::shared_ptr<node> > > parents_children;
+        for ( auto & parent_id : parent_ids) {
+            auto parent_node_weak_ptr = _all_nodes[parent_id];
+            temp_ptr->_parents.push_back(parent_node_weak_ptr);
+            parents_children[parent_id] = parent_node_weak_ptr.lock()->_children;
+            parents_children[parent_id].push_back(temp_ptr);
+        }
+        // Podmien nowy wektor dzieci ze starym
+        auto iter_for_swap = parent_ids.begin();
         try {
-            for (auto &parent_id : parent_ids) {
-                connect(id, parent_id);
+            for (; iter_for_swap != parent_ids.end(); iter_for_swap++) {
+                auto parent_shared_ptr = _all_nodes[*iter_for_swap].lock();
+                std::swap(parent_shared_ptr->_children, parents_children[*iter_for_swap]);
             }
         } catch (std::exception &e) {
+            for (auto it = parent_ids.begin(); it != iter_for_swap; it++) {
+                auto parent_shared_ptr = _all_nodes[*it].lock();
+                std::swap(parent_shared_ptr->_children, parents_children[*it]);
+            }
             throw;
         }
+
+
     }
 
     /**
@@ -191,6 +206,7 @@ public:
             for (auto parent_node_weak_ptr : node_to_remove->_parents) {
                 id_type parent_id = parent_node_weak_ptr.lock()->_virus->get_id();
                 connect(id, parent_id);
+                throw;
             }
         }
     }
