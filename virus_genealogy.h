@@ -153,16 +153,18 @@ public:
         std::shared_ptr<node> parent_node_shared_ptr = get_shared_ptr_to_node(parent_id);
 
         if (get_iterator_to_child(parent_id, child_id) !=
-            parent_node_shared_ptr->_children.end())
+                parent_node_shared_ptr->_children.end())
             return;
 
         std::shared_ptr<node> child_node_shared_ptr = get_shared_ptr_to_node(child_id);
         std::weak_ptr<node> parent_node_weak_ptr = parent_node_shared_ptr;
 
+
+        child_node_shared_ptr->_parents.push_back(parent_node_weak_ptr);
         try {
-            child_node_shared_ptr->_parents.push_back(parent_node_weak_ptr);
             parent_node_shared_ptr->_children.push_back(child_node_shared_ptr);
         } catch (std::exception &e) {
+            child_node_shared_ptr->_parents.pop_back();
             throw;
         }
     }
@@ -186,7 +188,7 @@ public:
                 }
             }
         } catch (std::exception &e) {
-            for (auto parent_node_weak_ptr: node_to_remove->_parents) {
+            for (auto parent_node_weak_ptr : node_to_remove->_parents) {
                 id_type parent_id = parent_node_weak_ptr.lock()->_virus->get_id();
                 connect(id, parent_id);
             }
@@ -240,9 +242,9 @@ private:
     auto get_iterator_to_child(id_type const &parent_id, id_type const &child_id) {
         auto parent = get_shared_ptr_to_node(parent_id);
         auto it = std::find_if(parent->_children.begin(), parent->_children.end(),
-                               [&child_id](std::shared_ptr<node> child) {
-                                   return child->_virus->get_id() == child_id;
-                               });
+        [&child_id](std::shared_ptr<node> child) {
+            return child->_virus->get_id() == child_id;
+        });
         return it;
     }
 
