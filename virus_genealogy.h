@@ -39,9 +39,9 @@ public:
     VirusGenealogy &operator=(const VirusGenealogy &) = delete;
 
     // stworz wierzcholek z wirusem macierzystym i dodaj do mapy
-    VirusGenealogy(id_type const &stem_id) :
-            _stem(std::make_shared<node>(stem_id)) {
+    VirusGenealogy(id_type const &stem_id) {
         try {
+            _stem = std::make_shared<node>(stem_id);
             _all_nodes.emplace(stem_id, _stem);
         } catch (std::exception &e) {
             _stem.reset();
@@ -91,7 +91,12 @@ public:
         if (exists(id)) throw virus_already_created;
         std::shared_ptr<node> temp_ptr = make_new_node(id);
 
-        connect(id, parent_id);
+        try {
+            connect(id, parent_id);
+        } catch (std::exception &e) {
+            throw;
+        }
+
     }
 
     void create(id_type const &id, std::vector<id_type> const &parent_ids) {
@@ -99,8 +104,12 @@ public:
         if (parent_ids.size() == 0) throw virus_not_found;
         std::shared_ptr<node> temp_ptr = make_new_node(id);
 
-        for (auto &parent_id : parent_ids) {
-            connect(id, parent_id);
+        try {
+            for (auto &parent_id : parent_ids) {
+                connect(id, parent_id);
+            }
+        } catch (std::exception &e) {
+            throw;
         }
     }
 
@@ -121,8 +130,12 @@ public:
         std::shared_ptr<node> child_node_shared_ptr = get_shared_ptr_to_node(child_id);
         std::weak_ptr<node> parent_node_weak_ptr = parent_node_shared_ptr;
 
-        child_node_shared_ptr->_parents.push_back(parent_node_weak_ptr);
-        parent_node_shared_ptr->_children.push_back(child_node_shared_ptr);
+        try {
+            child_node_shared_ptr->_parents.push_back(parent_node_weak_ptr);
+            parent_node_shared_ptr->_children.push_back(child_node_shared_ptr);
+        } catch (std::exception &e) {
+            throw;
+        }
     }
 
     /**
@@ -130,12 +143,10 @@ public:
      * W pętli usuwa wskaźnik do usuwanego wierzchołka z wektorów dzieci u jego rodziców
      * @param id
      */
-    //TODO czy na pewno to try jest w porządku - connect też w końcu wywala wyjątki xd
     void remove(id_type const &id) {
         if (_stem->_virus->get_id() == id) throw tried_to_remove_stem_virus;
         auto node_to_remove = get_shared_ptr_to_node(id);
 
-        //gwarantujemy tu silne bezpieczeństwo - przywracamy zmienione połączenia w razie wyjątku
         try {
             for (auto &parent_node_weak_ptr : node_to_remove->_parents) {
                 if (!parent_node_weak_ptr.expired()) {
@@ -151,10 +162,6 @@ public:
                 connect(id, parent_id);
             }
         }
-
-        // reszte robi za nas (domyslny) destruktor node() ktory zostanie wywolany zaraz
-        // po opuszczeniu funkcji -> wyczysci wektory dzieci i rodzica, a takze usunie wirusa
-        // a wskaznik w mapie bedzie `expired`
     }
 
 
