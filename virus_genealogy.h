@@ -35,10 +35,12 @@ class VirusGenealogy {
 
 public:
     VirusGenealogy(const VirusGenealogy &) = delete;
-
     VirusGenealogy &operator=(const VirusGenealogy &) = delete;
 
-    // stworz wierzcholek z wirusem macierzystym i dodaj do mapy
+    /**
+     * Tworzy wierzchłoek trzymający wirus macierzysty w grafie oraz umieszcza go w mapie trzymającej wierzchołki grafu
+     * @param stem_id
+     */
     VirusGenealogy(id_type const &stem_id) {
         try {
             _stem = std::make_shared<node>(stem_id);
@@ -49,16 +51,27 @@ public:
         }
     }
 
+    /**
+     * @return id wirusa macierzystego tego grafu genealogii
+     */
     id_type get_stem_id() const {
         return _stem->_virus->get_id();
     }
 
-    // jezeli nie wezla w mapie, albo jest, ale wczesniej zostal usuniety
+    /**
+     * Sprawdza czy wirus o danym id istnieje w mapie trzymającej węzły grafu genealogii i czy jest aktywny
+     * @param id
+     * @return true jeśli wirus o podanym id istnieje w grafie genealogii i jest aktywny, false wpp
+     */
     bool exists(id_type const &id) const {
         auto it = _all_nodes.find(id);
         return !(it == _all_nodes.end() || it->second.expired());
     }
 
+    /**
+     * @param id
+     * @return wektor zawierający id dzieci danego węzła w grafie genealogii
+     */
     std::vector<id_type> get_children(id_type const &id) const {
         auto current = get_shared_ptr_to_node(id);
         std::vector<id_type> children;
@@ -68,10 +81,13 @@ public:
         return children;
     }
 
+    /**
+     * @param id
+     * @return wektor zawierający id rodziców danego węzła w grafie genealogii
+     */
     std::vector<id_type> get_parents(id_type const &id) const {
         auto current = get_shared_ptr_to_node(id);
         std::vector<id_type> parents;
-        // current->_parent to wektor <weak_ptr> nastepnikow (dzieci) wezla current
         for (auto &node_ptr : current->_parents) {
             if (!node_ptr.expired()) {
                 auto ptr = node_ptr.lock();
@@ -82,11 +98,21 @@ public:
 
     }
 
+    /**
+     * Overload operatora []
+     * @param id
+     * @return zwraca wirus o podanym id
+     */
     Virus &operator[](id_type const &id) const {
         auto node_ptr = get_shared_ptr_to_node(id);
         return *(node_ptr->_virus);
     }
 
+    /**
+     * Tworzy nowy wierzchołek grafu genealogii dla wirusa o podanym id i dla rodzica o podanym parent_id
+     * @param id
+     * @param parent_id
+     */
     void create(id_type const &id, id_type const &parent_id) {
         if (exists(id)) throw virus_already_created;
         std::shared_ptr<node> temp_ptr = make_new_node(id);
@@ -99,6 +125,11 @@ public:
 
     }
 
+    /**
+     * Tworzy nowy wierzchołek grafu genealogii dla wirusa o podanym id i dla rodziców z podanego wektora
+     * @param id
+     * @param parent_ids
+     */
     void create(id_type const &id, std::vector<id_type> const &parent_ids) {
         if (exists(id)) throw virus_already_created;
         if (parent_ids.size() == 0) throw virus_not_found;
