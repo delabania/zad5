@@ -26,15 +26,13 @@ class TriedToRemoveStemVirus : public std::exception {
     }
 } tried_to_remove_stem_virus;
 
-
-//@TODO : wyjatki - nie ma poki co zadnej odpornosci na wyjatki!
-//TODO wszystkie zmiany obiektów powinny odbywać się na kopiach obiektow, a następnie wykonywanie swap()
 template<class Virus>
 class VirusGenealogy {
     using id_type = typename Virus::id_type;
 
 public:
     VirusGenealogy(const VirusGenealogy &) = delete;
+
     VirusGenealogy &operator=(const VirusGenealogy &) = delete;
 
     /**
