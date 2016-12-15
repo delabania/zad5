@@ -110,7 +110,13 @@ public:
 		if (parent_ids.size() == 0)
 			throw virus_not_found;
 
-		auto temp_ptr = make_new_node(id);
+        auto temp_ptr = make_new_node(id);
+        /*
+        try {
+            auto temp_ptr = make_new_node(id);
+        } catch (std::exception& e) {
+            throw;
+        }*/
 
 		for (auto & parent_id : parent_ids) {
 			connect(id, parent_id);
