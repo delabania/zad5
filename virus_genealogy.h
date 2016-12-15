@@ -237,14 +237,12 @@ private:
      * @param child_id
      * @return iterator do elementu w mapie trzymającego wirus o id równym child_id
      */
-    //TODO czy ma rzucać wyjątiem w przypadku gdy ==.end()? - wtedy inaczej działa connect
     auto get_iterator_to_child(id_type const &parent_id, id_type const &child_id) {
         auto parent = get_shared_ptr_to_node(parent_id);
         auto it = std::find_if(parent->_children.begin(), parent->_children.end(),
                                [&child_id](std::shared_ptr<node> child) {
                                    return child->_virus->get_id() == child_id;
                                });
-        //if (it == parent->_children.end()) throw virus_not_found;
         return it;
     }
 
